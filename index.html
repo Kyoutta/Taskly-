@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Taskly: Smart Daily Organizer</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: Arial, sans-serif;
+      overflow: hidden; /* evita scroll por causa do canvas */
+    }
+    body {
+      position: relative;
+      transition: background-color 0.3s ease;
+      padding: 20px;
+      box-sizing: border-box;
+      background-color: #f0f4f8;
+      color: #2c3e50;
+      min-height: 100vh;
+    }
+    canvas#backgroundCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      pointer-events: none;
+      user-select: none;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      background: #ecf0f1;
+      border: 1px solid #bdc3c7;
+      border-bottom: none;
+      margin: 0 2px;
+      border-radius: 5px 5px 0 0;
+      font-weight: bold;
+      color: #34495e;
+      user-select: none;
+      transition: background 0.3s ease;
+    }
+    .tab.active {
+      background: white;
+      border-bottom: 2px solid #3498db;
+      color: #2980b9;
+    }
+    .tab-content {
+      background: white;
+      border: 1px solid #bdc3c7;
+      padding: 15px;
+      border-radius: 0 5px 5px 5px;
+      max-width: 600px;
+      margin: 0 auto;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      height: 500px;
+      overflow-y: auto;
+    }
+    #taskName, #taskDueDate, #taskPriority {
+      padding: 8px;
+      margin: 5px 5px 15px 0;
+      font-size: 14px;
+    }
+    #taskPriority {
+      width: 100px;
+    }
+    button {
+      padding: 8px 16px;
+      cursor: pointer;
+      background-color: #2980b9;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #1f618d;
+    }
+    .task-list {
+      margin-top: 10px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .task-item {
+      background: #ecf0f1;
+      padding: 10px;
+      margin-bottom: 6px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-size: 14px;
+      color: #2c3e50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tip {
+      margin-top: 20px;
+      font-style: italic;
+      color: #34495e;
+      text-align: center;
+    }
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .calendar-header button {
+      background-color: #3498db;
+      font-weight: bold;
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: none;
+      color: white;
+    }
+    .calendar-header button:hover {
+      background-color: #2980b9;
+    }
+    .month-year {
+      font-size: 18px;
+      font-weight: bold;
+      color: #34495e;
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      text-align: center;
+      user-select: none;
+    }
+    .calendar-day-name {
+      font-weight: bold;
+      color: #2980b9;
+      font-size: 14px;
+    }
+    .calendar-day {
+      padding: 8px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      font-size: 14px;
+      color: #2c3e50;
+      background-color: #ecf0f1;
+      transition: background-color 0.3s ease;
+    }
+    .calendar-day:hover {
+      background-color: #d6eaf8;
+    }
+    .calendar-day.today {
+      border: 2px solid #2980b9;
+      font-weight: bold;
+    }
+    .calendar-day.selected {
+      background-color: #2980b9;
+      color: white;
+      font-weight: bold;
+    }
+    .pin {
+      width: 6px;
+      height: 6px;
+      background-color: #e74c3c;
+      border-radius: 50%;
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      border: 1px solid white;
+    }
+    .bg-color-picker {
+      margin: 20px 0;
+      text-align: center;
+      color: #34495e;
+    }
+    .bg-color-picker input {
+      cursor: pointer;
+      margin-left: 8px;
+      vertical-align: middle;
+      width: 40px;
+      height: 28px;
+      border: none;
+      background: none;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="backgroundCanvas"></canvas>
+
+  <h1>Taskly: Smart Daily Organizer</h1>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-tasks">Saved Tasks</div>
+    <div class="tab" id="tab-calendar">Calendar</div>
+  </div>
+
+  <div class="tab-content" id="content-tasks">
+    <input type="text" id="taskName" placeholder="Task name" />
+    <select id="taskPriority">
+      <option value="1">Low Priority</option>
+      <option value="2">Medium Priority</option>
+      <option value="3">High Priority</option>
+    </select>
+    <input type="date" id="taskDueDate" />
+    <button onclick="handleAddTask()">Add Task</button>
+
+    <div class="task-list" id="taskList"></div>
+    <div class="tip" id="tipDisplay"></div>
+
+    <div class="bg-color-picker">
+      <label for="bgColorPicker">Choose Background Color:</label>
+      <input type="color" id="bgColorPicker" />
+    </div>
+  </div>
+
+  <div class="tab-content" id="content-calendar" style="display:none;">
+    <div class="calendar-header">
+      <button id="prevMonth">&lt;</button>
+      <div class="month-year" id="monthYear"></div>
+      <button id="nextMonth">&gt;</button>
+    </div>
+    <div class="calendar-grid" id="calendarGrid">
+      <!-- Days generated by JS -->
+    </div>
+
+    <div class="task-list" id="tasksForSelectedDate" style="margin-top: 15px;">
+      <!-- Tasks for selected date shown here -->
+    </div>
+  </div>
+
+<script>
+  // --- Background canvas and patterns ---
+  const canvas = document.getElementById('backgroundCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    drawBackgroundPattern();
+  }
+
+  // Draw subtle code-like lines and colored dots
+  function drawBackgroundPattern() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw faint code lines (horizontal)
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.font = '12px monospace';
+
+    const lineHeight = 20;
+    for (let y = 0; y < canvas.height; y += lineHeight) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+
+      // Draw some random code fragments spaced out
+      if (y % (lineHeight * 3) === 0) {
+        const snippets = ['const ', 'let ', 'function ', 'var ', 'if(', 'else {', 'return ', '=> ', '{}', ';'];
+        for (let x = 10; x < canvas.width; x += 100) {
+          const snippet = snippets[Math.floor(Math.random() * snippets.length)];
+          ctx.fillStyle = 'rgba(0,0,0,0.07)';
+          ctx.fillText(snippet, x, y - 4);
+        }
+      }
+    }
+
+    // Draw colored dots pattern (like "cores")
+    const colors = ['#e74c3c', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6'];
+    for (let i = 0; i < 120; i++) {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      const radius = 2 + Math.random() * 2;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+      ctx.globalAlpha = 0.1;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Save bg color and pattern type
+  function saveBackgroundSettings(color) {
+    const settings = { color };
+    localStorage.setItem('bgSettings', JSON.stringify(settings));
+  }
+
+  function loadBackgroundSettings() {
+    const settingsStr = localStorage.getItem('bgSettings');
+    if (!settingsStr) return null;
+    try {
+      return JSON.parse(settingsStr);
+    } catch {
+      return null;
+    }
+  }
+
+  // === Tasks and UI logic ===
+  const tasks = [];
+  let userHabits = {
+    productiveHours: [9, 10, 11, 14, 15],
+    breakHours: [12, 16],
+  };
+  let currentDate = new Date();
+  let selectedDate = formatDateISO(new Date());
+
+  function formatDateISO(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function addTask(name, priority, dueDate) {
+    tasks.push({ name, priority: parseInt(priority), dueDate, completed: false });
+    organizeTasks();
+    setReminder(tasks[tasks.length - 1]);
+  }
+
+  function organizeTasks() {
+    tasks.sort((a, b) => {
+      if (a.priority !== b.priority) return b.priority - a.priority;
+      return new Date(a.dueDate) - new Date(b.dueDate);
+    });
+    displayTasks();
+    renderMiniCalendar();
+  }
+
+  function setReminder(task) {
+    const currentHour = new Date().getHours();
+    const bestHour = userHabits.productiveHours.includes(currentHour)
+      ? currentHour
+      : userHabits.productiveHours[0];
+    console.log(`Reminder for '${task.name}' set at ${bestHour}:00.`);
+  }
+
+  function displayTasks() {
+    const taskList = document.getElementById("taskList");
+    taskList.innerHTML = "";
+    tasks.forEach((task, i) => {
+      const item = document.createElement("div");
+      item.className = "task-item";
+      item.innerText = `${i + 1}. ${task.name} | Priority: ${task.priority} | Due: ${task.dueDate}`;
+      taskList.appendChild(item);
+    });
+    document.getElementById("tipDisplay").innerText = `💡 Tip: ${getProductivityTip()}`;
+  }
+
+  function getProductivityTip() {
+    const tips = [
+      "Break big tasks into smaller steps.",
+      "Take short breaks to recharge.",
+      "Prioritize your most important task first.",
+      "Set deadlines to stay focused.",
+      "Avoid multitasking for better focus."
+    ];
+    return tips[Math.floor(Math.random() * tips.length)];
+  }
+
+  // Tabs switch
+  document.getElementById("tab-tasks").addEventListener("click", () => {
+    showTab("tasks");
+  });
+  document.getElementById("tab-calendar").addEventListener("click", () => {
+    showTab("calendar");
+  });
+
+  function showTab(name) {
+    if (name === "tasks") {
+      document.getElementById("content-tasks").style.display = "block";
+      document.getElementById("content-calendar").style.display = "none";
+      document.getElementById("tab-tasks").classList.add("active");
+      document.getElementById("tab-calendar").classList.remove("active");
+    } else {
+      document.getElementById("content-tasks").style.display = "none";
+      document.getElementById("content-calendar").style.display = "block";
+      document.getElementById("tab-calendar").classList.add("active");
+      document.getElementById("tab-tasks").classList.remove("active");
+      renderMiniCalendar();
+      displayTasksForDate(selectedDate);
+    }
+  }
+
+  // Add task button handler
+  function handleAddTask() {
+    const name = document.getElementById("taskName").value.trim();
+    const priority = document.getElementById("taskPriority").value;
+    const dueDate = document.getElementById("taskDueDate").value;
+    if (!name) {
+      alert("Please enter a task name.");
+      return;
+    }
+    if (!dueDate) {
+      alert("Please select a due date.");
+      return;
+    }
+    addTask(name, priority, dueDate);
+    document.getElementById("taskName").value = "";
+    document.getElementById("taskDueDate").value = "";
+  }
+
+  // Calendar generation and navigation
+  const monthYearDisplay = document.getElementById("monthYear");
+  const calendarGrid = document.getElementById("calendarGrid");
+  const tasksForSelectedDate = document.getElementById("tasksForSelectedDate");
+  let currentMonth = currentDate.getMonth();
+  let currentYear = currentDate.getFullYear();
+
+  document.getElementById("prevMonth").addEventListener("click", () => {
+    currentMonth--;
+    if (currentMonth < 0) {
+      currentMonth = 11;
+      currentYear--;
+    }
+    renderMiniCalendar();
+  });
+
+  document.getElementById("nextMonth").addEventListener("click", () => {
+    currentMonth++;
+    if (currentMonth > 11) {
+      currentMonth = 0;
+      currentYear++;
+    }
+    renderMiniCalendar();
+  });
+
+  function renderMiniCalendar() {
+    calendarGrid.innerHTML = "";
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    monthYearDisplay.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayNames.forEach(dayName => {
+      const dayHeader = document.createElement('div');
+      dayHeader.className = 'calendar-day-name';
+      dayHeader.innerText = dayName;
+      calendarGrid.appendChild(dayHeader);
+    });
+
+    // Fill blank days before first day
+    for (let i = 0; i < firstDay; i++) {
+      const blank = document.createElement('div');
+      calendarGrid.appendChild(blank);
+    }
+
+    // Fill days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayCell = document.createElement('div');
+      dayCell.className = 'calendar-day';
+      const fullDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      dayCell.innerText = d;
+
+      // Highlight today
+      const todayStr = formatDateISO(new Date());
+      if (fullDate === todayStr) {
+        dayCell.classList.add('today');
+      }
+
+      // Highlight selected date
+      if (fullDate === selectedDate) {
+        dayCell.classList.add('selected');
+      }
+
+      // Pin for days with tasks
+      if (tasks.some(t => t.dueDate === fullDate)) {
+        const pin = document.createElement('div');
+        pin.className = 'pin';
+        dayCell.appendChild(pin);
+      }
+
+      dayCell.addEventListener('click', () => {
+        selectedDate = fullDate;
+        renderMiniCalendar();
+        displayTasksForDate(selectedDate);
+      });
+
+      calendarGrid.appendChild(dayCell);
+    }
+  }
+
+  function displayTasksForDate(dateStr) {
+    tasksForSelectedDate.innerHTML = `<h3>Tasks for ${dateStr}:</h3>`;
+    const filtered = tasks.filter(t => t.dueDate === dateStr);
+    if (filtered.length === 0) {
+      tasksForSelectedDate.innerHTML += "<p>No tasks scheduled.</p>";
+    } else {
+      filtered.forEach(task => {
+        const div = document.createElement('div');
+        div.className = 'task-item';
+        div.innerText = `${task.name} (Priority: ${task.priority})`;
+        tasksForSelectedDate.appendChild(div);
+      });
+    }
+  }
+
+  // Background color picker logic
+  const bgColorPicker = document.getElementById('bgColorPicker');
+
+  bgColorPicker.addEventListener('input', (e) => {
+    const color = e.target.value;
+    document.body.style.backgroundColor = color;
+    saveBackgroundSettings(color);
+    drawBackgroundPattern();
+  });
+
+  // Load saved background settings
+  function applySavedBackground() {
+    const saved = loadBackgroundSettings();
+    if (saved && saved.color) {
+      document.body.style.backgroundColor = saved.color;
+      bgColorPicker.value = saved.color;
+    }
+    drawBackgroundPattern();
+  }
+
+  // Initialization
+  window.addEventListener('resize', resizeCanvas);
+  window.onload = () => {
+    resizeCanvas();
+    applySavedBackground();
+    organizeTasks();
+  };
+
+</script>
+
+</body>
+</html>
